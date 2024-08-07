@@ -4,32 +4,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 #include "config.h"
-//#include "util.h"
 
-
-
-
-
-
-typedef float fp32_t;
-typedef double fp64_t;
-
-typedef long long int64_t;
-typedef unsigned long long uint64_t;
-
-typedef signed char int8_t;
-typedef unsigned char uint8_t;
-
-typedef int int32_t;
-typedef unsigned int uint32_t;
 
 
 
 
 
 extern char _embedded_binary_model[];
+
+typedef float fp32_t;
 
 typedef struct MambaWeights MambaWeights;
 typedef struct MambaConfig  MambaConfig;
@@ -310,10 +296,10 @@ void quantize(int8_t *xq, fp32_t *xs, fp32_t* x, uint64_t n) {
 static char *shortScale(char *result, int64_t number) {
     char *suffixes[] = {"", "k", "m", "b"};
     uint64_t magnitude = 0;
-    fp64_t num = (fp64_t)number;
+    fp32_t num = (fp32_t)number;
 
     if (number < 1000) {
-        sprintf(result, "%lld", number);
+        sprintf(result, "%lu", number);
         return result;
     }
 
@@ -323,7 +309,7 @@ static char *shortScale(char *result, int64_t number) {
         num /= 1000.0;
     }
 
-    sprintf(result, "%.0lf%s", num, suffixes[magnitude]);
+    sprintf(result, "%.0f%s", num, suffixes[magnitude]);
     return result;
 }
 
@@ -334,7 +320,7 @@ static inline void nparams(uint64_t dim) {
 	char buff[16];
 	shortScale(buff, dim);
 	
-	LOG("%12llu (%s)", dim, buff);
+	LOG("%12lu (%s)", dim, buff);
 }
 #define NPARAMS(X) nparams(sizeof(X) / sizeof(fp32_t))
 
@@ -344,13 +330,13 @@ static void MambaLog(Mamba *mamba) {
     MambaState      *s = &mamba->state;
 
 	LOG("Mamba Config:");
-    LOG("\n\tvocab_size:     %12llu",	p->vocab_size);
-    LOG("\n\tn_layer:        %12llu",	p->n_layer);
-    LOG("\n\td_model:        %12llu",	p->d_model);
-    LOG("\n\td_inner:        %12llu",	p->d_inner);
-    LOG("\n\tdt_rank:        %12llu",	p->dt_rank);
-    LOG("\n\td_state:        %12llu",	p->d_state);
-    LOG("\n\td_conv:         %12llu",	p->d_conv);
+    LOG("\n\tvocab_size:     %12lu",	p->vocab_size);
+    LOG("\n\tn_layer:        %12lu",	p->n_layer);
+    LOG("\n\td_model:        %12lu",	p->d_model);
+    LOG("\n\td_inner:        %12lu",	p->d_inner);
+    LOG("\n\tdt_rank:        %12lu",	p->dt_rank);
+    LOG("\n\td_state:        %12lu",	p->d_state);
+    LOG("\n\td_conv:         %12lu",	p->d_conv);
     printf("\n\n\n");
 
     LOG("Parameters Count:");
@@ -466,7 +452,7 @@ static inline void nparams(uint64_t dim) {
 	
 	global_scale += dim;
 
-	LOG("%12llu (%s)", dim, buff);
+	LOG("%12lu (%s)", dim, buff);
 }
 #define NPARAMS(X) nparams(sizeof(X) / sizeof(fp32_t))
 
@@ -477,20 +463,20 @@ static inline void nqparams(uint64_t qdim) {
 	shortScale(buff, qdim);
 
 	nparams(dim);
-	LOG("\t%12llu (%s)", qdim, buff);
+	LOG("\t%12lu (%s)", qdim, buff);
 }
 #define NQPARAMS(X) nqparams(sizeof(X.q) / sizeof(fp32_t))
 
 static inline void ntotal(uint64_t qdim) {
 	char buff[16];
 	shortScale(buff, global_scale);
-	LOG("%12llu (%s)", global_scale, buff);
+	LOG("%12lu (%s)", global_scale, buff);
 
 	shortScale(buff, qdim);	
-	LOG("\t%12llu (%s)", qdim, buff);
+	LOG("\t%12lu (%s)", qdim, buff);
 
 	fp32_t factor = (((fp32_t) (global_scale - qdim)) / global_scale) * 100;
-	LOG("\t%12.2lf%%", factor);
+	LOG(" < %.2lf%%", factor);
 }
 #define NTOTAL(X) ntotal(sizeof(X) / sizeof(fp32_t))
 
@@ -500,13 +486,13 @@ static void MambaLog(Mamba *mamba) {
     MambaState      *s = &mamba->state;
 
 	LOG("Mamba Config:");
-    LOG("\n\tvocab_size:     %12llu",	p->vocab_size);
-    LOG("\n\tn_layer:        %12llu",	p->n_layer);
-    LOG("\n\td_model:        %12llu",	p->d_model);
-    LOG("\n\td_inner:        %12llu",	p->d_inner);
-    LOG("\n\tdt_rank:        %12llu",	p->dt_rank);
-    LOG("\n\td_state:        %12llu",	p->d_state);
-    LOG("\n\td_conv:         %12llu",	p->d_conv);
+    LOG("\n\tvocab_size:     %12lu",	p->vocab_size);
+    LOG("\n\tn_layer:        %12lu",	p->n_layer);
+    LOG("\n\td_model:        %12lu",	p->d_model);
+    LOG("\n\td_inner:        %12lu",	p->d_inner);
+    LOG("\n\tdt_rank:        %12lu",	p->dt_rank);
+    LOG("\n\td_state:        %12lu",	p->d_state);
+    LOG("\n\td_conv:         %12lu",	p->d_conv);
     printf("\n\n\n");
 
     LOG("Parameters Count:               Base               Quantized                   Factor");
@@ -638,90 +624,3 @@ static fp32_t *MambaForward(Mamba *mamba, uint64_t token) {
 #endif
 
 
-/*
-#define PRINT(C) fputc((char)C, stdout), fflush(stdout)
-
-typedef enum {false, true} bool;
-
-static uint64_t rng_seed = 0;
-static uint64_t random_u32() { 
-    rng_seed ^= rng_seed >> 12;
-    rng_seed ^= rng_seed << 25;
-    rng_seed ^= rng_seed >> 27;
-    return (rng_seed * 0x2545F4914F6CDD1Dull) >> 32;
-}
-static inline fp32_t random_f32() { return (random_u32() >> 8) / 16777216.0f; }
-
-static uint64_t time_in_ms() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-}
-
-static uint64_t sample_argmax(fp32_t* probabilities, uint64_t n) {
-    uint64_t max_i = 0;
-    fp32_t max_p = probabilities[0];
-
-    for (uint64_t i = 1; i < n; ++i)
-        if (probabilities[i] > max_p)
-            max_i = i, max_p = probabilities[i];
-
-    return max_i;
-}
-
-static uint64_t sample_mult(fp32_t* probabilities, uint64_t n, fp32_t coin) {
-    fp32_t cdf = 0.0f;
-
-    for (uint64_t i = 0; i < n; ++i) {
-        cdf += probabilities[i];
-
-        if (coin < cdf) return i;
-    }
-    
-    return n - 1;
-}
-
-static uint64_t sample(fp32_t* logits, fp32_t temperature, uint64_t vocab_size) {
-    uint64_t next;
-    
-    if (temperature == 0.0f) next = sample_argmax(logits, vocab_size);
-    else {
-        for (uint64_t q = 0; q < vocab_size; ++q) 
-            logits[q] /= temperature;
-
-        softmax(logits, vocab_size);
-
-        fp32_t coin = random_f32();
-        next = sample_mult(logits, vocab_size, coin);
-    }
-
-    return next;
-}
-
-static bool generate(Mamba *mamba, char *prompt, uint64_t n_predict, fp32_t temperature, bool verbose) {
-	uint64_t tokens[n_predict],
-             len,
-             time_start = time_in_ms();
-
-    if (prompt == NULL || (len = strlen(prompt)) == 0) return EXIT_FAILURE;
-
-    for (uint64_t i = 0; i < len; ++i) {
-        tokens[i] = (uint64_t)prompt[i];
-        (void) mamba->forward(mamba, tokens[i]);
-    
-        PRINT(prompt[i]);
-    }
-
-    for (; len < n_predict; ++len) {
-        fp32_t *logits = mamba->forward(mamba, tokens[len - 1]);
-        uint64_t next = sample(logits, temperature, mamba->config.vocab_size);
-        tokens[len] = next;
-
-        PRINT((char)next);
-    }
-
-    
-	CLOG(verbose, "\nachieved tok/s: %f\n", n_predict / (double)(time_in_ms() - time_start) * 1000);
-    
-	return EXIT_SUCCESS;
-}*/
